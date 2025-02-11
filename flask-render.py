@@ -87,6 +87,9 @@ async def github_callback(code: str, request: Request):
         if "access_token" not in token_data:
             raise HTTPException(status_code=400, detail="Invalid response from GitHub")
 
+        # Store the token in Redis for csosget-tool.py and /get-token endpoint
+        redis_client.set("github_token", token_data["access_token"], ex=3600)  # Store for 1 hour
+        
         return {"access_token": token_data["access_token"]}  # Return only the token, not the full response
 
 
@@ -102,8 +105,20 @@ async def github_callback(code: str, request: Request):
     #     user_response = await client.get("https://api.github.com/user", headers=headers)
     #     return user_response.json()
 
+# to expose github auth token to the csosget-tool.py file
+@app.get("/get-token")
+async def get_token():
+    """Endpoint to return the GitHub OAuth token."""
+    # Fetch the token from Redis or generate it dynamically
+    token = redis_client.get("github_token")  # Store the token in Redis after GitHub OAuth flow
+    print(f"GitHub Token: {token}") #delete this line
+    if not token:
+        raise HTTPException(status_code=404, detail="Token not found")
+    return {"access_token": token}
+
 
 # Rate-limited lesson download
+# does this need to be in server?
 @app.get("/download/{lesson_name}")
 async def download_lesson(lesson_name: str, token: str = Depends(oauth2_scheme)):
     user_data = get_github_user(token)

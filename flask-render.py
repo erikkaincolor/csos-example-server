@@ -34,6 +34,14 @@ oauth2_scheme = OAuth2AuthorizationCodeBearer(
     tokenUrl="https://github.com/login/oauth/access_token"
 )
 
+@app.get("/")
+async def home():
+    return {"message": "Welcome to the FastAPI server!"}
+
+@app.get("/lessons/{lesson_name}")
+async def serve_lesson(lesson_name: str):
+    return {"message": f"Serving lesson {lesson_name}"}
+
 # Function to verify GitHub user
 def get_github_user(access_token: str):
     headers = {"Authorization": f"token {access_token}"}

@@ -93,6 +93,7 @@ def get_github_user(access_token: str):
 #     # do something with the response json!
 
 # test @ 1:39pm <---delete by 2pm
+import httpx
 @app.get("/auth/github/callback")
 async def github_callback(code: str, request: Request):
     print(f"OAuth Code: {code}")  # Debugging
@@ -106,13 +107,15 @@ async def github_callback(code: str, request: Request):
         "code": code
     }
 
-    token_response = requests.post(token_url, headers=headers, data=payload).json()
-    print(f"GitHub Token Response: {token_response}")  # Debugging
-    access_token = token_response["access_token"]
-    headers.update({"Authorization": f"bearer {access_token}"})
-    response = await requests.get("https://api.github.com/user", headers=headers)
-    return response.json()
-    # do something with the response json!
+    async with httpx.AsyncClient() as client:
+        token_response = await client.post(token_url, headers=headers, data=payload)
+        token_data = token_response.json()
+        print(f"GitHub Token Response: {token_data}")  # Debugging
+        access_token = token_data["access_token"]
+        headers.update({"Authorization": f"bearer {access_token}"})
+
+        user_response = await client.get("https://api.github.com/user", headers=headers)
+        return user_response.json()
 
 
 # Rate-limited lesson download

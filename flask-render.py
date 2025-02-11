@@ -30,10 +30,15 @@ GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
 GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
 
+###################################################################
+###################################################################
 oauth2_scheme = OAuth2AuthorizationCodeBearer(
     authorizationUrl="https://github.com/login/oauth/authorize",
     tokenUrl="https://github.com/login/oauth/access_token"
 )
+###################################################################
+###################################################################
+
 
 @app.get("/")
 async def home():
@@ -43,7 +48,11 @@ async def home():
 async def serve_lesson(lesson_name: str):
      # Define the path to your lesson file
     lesson_path = f"public/lessons/{lesson_name}.zip"
-    
+    # /public/lessons/gd2_1-2           404
+    # /public/lessons/gd2_1-2.zip       404
+
+    print(f"Looking for file at: {lesson_path}")
+
     # Check if the file exists
     if os.path.exists(lesson_path):
         return FileResponse(lesson_path)

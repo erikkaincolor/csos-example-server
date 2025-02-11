@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.security import OAuth2AuthorizationCodeBearer
 import redis
+from fastapi.responses import FileResponse
 import os
 import requests
 from dotenv import load_dotenv
@@ -40,7 +41,14 @@ async def home():
 
 @app.get("/lessons/{lesson_name}")
 async def serve_lesson(lesson_name: str):
-    return {"message": f"Serving lesson {lesson_name}"}
+     # Define the path to your lesson file
+    lesson_path = f"public/lessons/{lesson_name}.zip"
+    
+    # Check if the file exists
+    if os.path.exists(lesson_path):
+        return FileResponse(lesson_path)
+    else:
+        raise HTTPException(status_code=404, detail="Lesson not found")
 
 # Function to verify GitHub user
 def get_github_user(access_token: str):

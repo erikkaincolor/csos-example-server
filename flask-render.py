@@ -1,11 +1,11 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.security import OAuth2AuthorizationCodeBearer
 import redis
 from fastapi.responses import FileResponse
 import os
 import requests
 from dotenv import load_dotenv
-from fastapi import Request
+import httpx
 
 load_dotenv()
 
@@ -31,14 +31,10 @@ GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
 GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
 
-###################################################################
-###################################################################
 oauth2_scheme = OAuth2AuthorizationCodeBearer(
     authorizationUrl="https://github.com/login/oauth/authorize",
     tokenUrl="https://github.com/login/oauth/access_token"
 )
-###################################################################
-###################################################################
 
 
 @app.get("/")
@@ -71,29 +67,8 @@ def get_github_user(access_token: str):
     return response.json()
 
 # # GitHub OAuth callback
-# possibly use httpx for fastapi async reqs 
-# # WORKS
-# @app.get("/auth/github/callback")
-# async def github_callback(code: str, request: Request):
-#     print(f"OAuth Code: {code}")  # Debugging
-#     print(f"Received request: {request.method}")
-    
-#     token_url = "https://github.com/login/oauth/access_token"
-#     headers = {"Accept": "application/json"}
-#     payload = {
-#         "client_id": GITHUB_CLIENT_ID,
-#         "client_secret": GITHUB_CLIENT_SECRET,
-#         "code": code
-#     }
+# https://www.youtube.com/watch?v=Pm938UxLEwQ
 
-#     token_response = requests.post(token_url, headers=headers, data=payload).json()
-#     print(f"GitHub Token Response: {token_response}")  # Debugging
-
-#     return token_response
-#     # do something with the response json!
-
-# test @ 1:39pm <---delete by 2pm
-import httpx
 @app.get("/auth/github/callback")
 async def github_callback(code: str, request: Request):
     print(f"OAuth Code: {code}")  # Debugging

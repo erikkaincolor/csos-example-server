@@ -58,20 +58,14 @@ async def serve_lesson(lesson_name: str):
     else:
         raise HTTPException(status_code=404, detail="Lesson not found")
 
-# Function to verify GitHub user
-def get_github_user(access_token: str):
-    headers = {"Authorization": f"token {access_token}"}
-    response = requests.get("https://api.github.com/user", headers=headers)
-    if response.status_code != 200:
-        raise HTTPException(status_code=400, detail="Invalid GitHub token")
-    return response.json()
 
+# Function to verify GitHub user
 # # GitHub OAuth callback
 # https://www.youtube.com/watch?v=Pm938UxLEwQ
 
 @app.get("/auth/github/callback")
 async def github_callback(code: str, request: Request):
-    print(f"OAuth Code: {code}")  # Debugging
+    print(f"OAuth Code: {code}")  # Debugging (avoid logging in production)
     print(f"Received request: {request.method}")
     
     token_url = "https://github.com/login/oauth/access_token"
@@ -84,13 +78,29 @@ async def github_callback(code: str, request: Request):
 
     async with httpx.AsyncClient() as client:
         token_response = await client.post(token_url, headers=headers, data=payload)
-        token_data = token_response.json()
-        print(f"GitHub Token Response: {token_data}")  # Debugging
-        access_token = token_data["access_token"]
-        headers.update({"Authorization": f"bearer {access_token}"})
+        
+        if token_response.status_code != 200:
+            raise HTTPException(status_code=token_response.status_code, detail="Failed to fetch access token")
 
-        user_response = await client.get("https://api.github.com/user", headers=headers)
-        return user_response.json()
+        token_data = token_response.json()
+        
+        if "access_token" not in token_data:
+            raise HTTPException(status_code=400, detail="Invalid response from GitHub")
+
+        return {"access_token": token_data["access_token"]}  # Return only the token, not the full response
+
+
+    
+# for getting user data sent back as json:
+    # async with httpx.AsyncClient() as client:
+    #     token_response = await client.post(token_url, headers=headers, data=payload)
+    #     token_data = token_response.json()
+    #     print(f"GitHub Token Response: {token_data}")  # Debugging
+    #     access_token = token_data["access_token"]
+    #     headers.update({"Authorization": f"bearer {access_token}"})
+
+    #     user_response = await client.get("https://api.github.com/user", headers=headers)
+    #     return user_response.json()
 
 
 # Rate-limited lesson download

@@ -17,6 +17,13 @@ redis_client = redis.Redis(
     decode_responses=True
 )
 
+# Test Connection
+try:
+    redis_client.ping()
+    print("✅ Connected to Redis!")
+except redis.exceptions.ConnectionError:
+    print("❌ Redis connection failed.")
+
 # GitHub OAuth
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
 GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")

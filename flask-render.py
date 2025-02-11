@@ -14,7 +14,7 @@ app = FastAPI()
 redis_client = redis.Redis(
     host=os.getenv("REDIS_HOST"), 
     port=os.getenv("REDIS_PORT"), 
-    password=os.getenv("REDIS_PASSWORD"), 
+    # password=os.getenv("REDIS_PASSWORD"), 
     decode_responses=True
 )
 
@@ -89,4 +89,4 @@ async def download_lesson(lesson_name: str, token: str = Depends(oauth2_scheme))
     redis_client.incr(f"downloads:{user_id}")
     redis_client.expire(f"downloads:{user_id}", 3600)
 
-    return {"message": f"Downloading {lesson_name}.zip", "url": f"https://yourserver.com/lessons/{lesson_name}.zip"}
+    return {"message": f"Downloading {lesson_name}.zip", "url": f"https://csos-example-server.onrender.com/lessons/{lesson_name}.zip"}

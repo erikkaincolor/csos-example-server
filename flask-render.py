@@ -50,6 +50,8 @@ async def serve_lesson(lesson_name: str):
     lesson_path = f"public/lessons/{lesson_name}.zip"
     # /public/lessons/gd2_1-2           404
     # /public/lessons/gd2_1-2.zip       404
+    # csos-example-server.onrender.com/lessons/gd2_1-2              202
+    # csos-example-server.onrender.com/lessons/gd2_1-2.zip          404
 
     print(f"Looking for file at: {lesson_path}")
 
@@ -67,22 +69,43 @@ def get_github_user(access_token: str):
         raise HTTPException(status_code=400, detail="Invalid GitHub token")
     return response.json()
 
-# GitHub OAuth callback
-@app.get("/auth/github/callback")
-async def github_callback(code: str):
-    token_url = f"https://github.com/login/oauth/access_token?client_id={GITHUB_CLIENT_ID}&client_secret={GITHUB_CLIENT_SECRET}&code={code}"
-    headers = {"Accept": "application/json"}
-    token_response = requests.post(token_url, headers=headers).json()
+# # GitHub OAuth callback
+# @app.get("/auth/github/callback")
+# async def github_callback(code: str):
+#     token_url = f"https://github.com/login/oauth/access_token?client_id={GITHUB_CLIENT_ID}&client_secret={GITHUB_CLIENT_SECRET}&code={code}"
+#     headers = {"Accept": "application/json"}
+#     token_response = requests.post(token_url, headers=headers).json()
     
-    if "access_token" not in token_response:
-        raise HTTPException(status_code=400, detail="Failed to authenticate")
+#     if "access_token" not in token_response:
+#         raise HTTPException(status_code=400, detail="Failed to authenticate")
 
-    user_data = get_github_user(token_response["access_token"])
+#     user_data = get_github_user(token_response["access_token"])
     
-    # Store token in Redis (expiring in 1 hour)
-    redis_client.setex(f"user:{user_data['id']}", 3600, token_response["access_token"])
+#     # Store token in Redis (expiring in 1 hour)
+#     redis_client.setex(f"user:{user_data['id']}", 3600, token_response["access_token"])
     
-    return {"message": "Login successful!", "user": user_data}
+#     return {"message": "Login successful!", "user": user_data}
+
+from fastapi import Request
+
+@app.get("/auth/github/callback")
+async def github_callback(code: str, request: Request):
+    print(f"OAuth Code: {code}")  # Debugging
+    print(f"Received request: {request.method}")
+    
+    token_url = "https://github.com/login/oauth/access_token"
+    headers = {"Accept": "application/json"}
+    payload = {
+        "client_id": GITHUB_CLIENT_ID,
+        "client_secret": GITHUB_CLIENT_SECRET,
+        "code": code
+    }
+
+    token_response = requests.post(token_url, headers=headers, data=payload).json()
+    print(f"GitHub Token Response: {token_response}")  # Debugging
+
+    return token_response
+
 
 # Rate-limited lesson download
 @app.get("/download/{lesson_name}")

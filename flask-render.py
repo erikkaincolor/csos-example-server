@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse
 import os
 import requests
 from dotenv import load_dotenv
+from fastapi import Request
 
 load_dotenv()
 
@@ -70,25 +71,28 @@ def get_github_user(access_token: str):
     return response.json()
 
 # # GitHub OAuth callback
-# @app.get("/auth/github/callback")
-# async def github_callback(code: str):
-#     token_url = f"https://github.com/login/oauth/access_token?client_id={GITHUB_CLIENT_ID}&client_secret={GITHUB_CLIENT_SECRET}&code={code}"
-#     headers = {"Accept": "application/json"}
-#     token_response = requests.post(token_url, headers=headers).json()
-    
-#     if "access_token" not in token_response:
-#         raise HTTPException(status_code=400, detail="Failed to authenticate")
-
-#     user_data = get_github_user(token_response["access_token"])
-    
-#     # Store token in Redis (expiring in 1 hour)
-#     redis_client.setex(f"user:{user_data['id']}", 3600, token_response["access_token"])
-    
-#     return {"message": "Login successful!", "user": user_data}
-
-from fastapi import Request
 # possibly use httpx for fastapi async reqs 
+# # WORKS
+# @app.get("/auth/github/callback")
+# async def github_callback(code: str, request: Request):
+#     print(f"OAuth Code: {code}")  # Debugging
+#     print(f"Received request: {request.method}")
+    
+#     token_url = "https://github.com/login/oauth/access_token"
+#     headers = {"Accept": "application/json"}
+#     payload = {
+#         "client_id": GITHUB_CLIENT_ID,
+#         "client_secret": GITHUB_CLIENT_SECRET,
+#         "code": code
+#     }
 
+#     token_response = requests.post(token_url, headers=headers, data=payload).json()
+#     print(f"GitHub Token Response: {token_response}")  # Debugging
+
+#     return token_response
+#     # do something with the response json!
+
+# test @ 1:39pm <---delete by 2pm
 @app.get("/auth/github/callback")
 async def github_callback(code: str, request: Request):
     print(f"OAuth Code: {code}")  # Debugging
@@ -104,10 +108,11 @@ async def github_callback(code: str, request: Request):
 
     token_response = requests.post(token_url, headers=headers, data=payload).json()
     print(f"GitHub Token Response: {token_response}")  # Debugging
-
-    return token_response
+    access_token = token_response["access_token"]
+    headers.update({"Authorization": f"bearer {access_token}"})
+    response = await requests.get("https://api.github.com/user", headers=headers)
+    return response.json()
     # do something with the response json!
-
 
 
 # Rate-limited lesson download

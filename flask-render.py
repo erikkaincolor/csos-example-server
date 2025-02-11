@@ -87,6 +87,7 @@ def get_github_user(access_token: str):
 #     return {"message": "Login successful!", "user": user_data}
 
 from fastapi import Request
+# possibly use httpx for fastapi async reqs 
 
 @app.get("/auth/github/callback")
 async def github_callback(code: str, request: Request):
@@ -105,6 +106,8 @@ async def github_callback(code: str, request: Request):
     print(f"GitHub Token Response: {token_response}")  # Debugging
 
     return token_response
+    # do something with the response json!
+
 
 
 # Rate-limited lesson download

@@ -8,8 +8,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 lesson_router = APIRouter()
-redis_client = redis.Redis(host="localhost", port=6379, decode_responses=True)
-
+# redis_client = redis.Redis(host="localhost", port=6379, decode_responses=True)
+# Connect to Redis
+redis_client = redis.Redis(
+    host=os.getenv("REDIS_HOST"), 
+    port=os.getenv("REDIS_PORT"), 
+    # password=os.getenv("REDIS_PASSWORD"), 
+    decode_responses=True
+)
 LESSON_PATH = "public/lessons/"
 RATE_LIMIT = 5  # Max 5 downloads per hour
 

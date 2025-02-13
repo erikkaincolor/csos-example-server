@@ -86,7 +86,7 @@ async def github_callback(request: Request):
         # return {"message": "Authentication successful", "username": github_username}
         # ----------------------------------------------
         
-        # Store the token in Redis for csosget-tool.py and /get-token endpoint
+        # Store the token in Redis for csos get tool file and /get-token endpoint
         redis_client.set("github_token", access_token, ex=3600)  # Store for 1 hour
         
         return {"access_token": access_token}  # Return only the token, not the full response

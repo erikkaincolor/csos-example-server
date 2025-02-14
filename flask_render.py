@@ -136,3 +136,15 @@ async def download_lesson(lesson_name: str, token: str = Depends(oauth2_scheme))
     return {"message": f"Downloading {lesson_name}.zip", "url": f"https://csos-example-server.onrender.com/lessons/{lesson_name}.zip"}
 
 
+
+
+# since i dont get free shell access for render.com, i will use subprocess to run shell commands
+import subprocess
+
+@app.get("/debug/list-lessons")
+async def list_lessons():
+    try:
+        result = subprocess.run(["ls", "-R", "public/lessons/"], capture_output=True, text=True)
+        return {"output": result.stdout}
+    except Exception as e:
+        return {"error": str(e)}

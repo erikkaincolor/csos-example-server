@@ -96,18 +96,10 @@ async def github_callback(request: Request):
 @auth_router.get("/get-token")
 async def get_token(request: Request):
     """Allows the CLI to poll for an authenticated token."""
-    # github_username = request.query_params.get("username")
-
-    # if not github_username:
-    #     raise HTTPException(status_code=400, detail="Missing username")
-
-    # token = redis_client.get(f"github_token:{github_username}")
-
-    # Fetch the token from Redis or generate it dynamically
-
-    token = redis_client.get("github_token") 
-
+    # Get the token directly since we're not using username-specific storage
+    token = redis_client.get("github_token")
+    
     if not token:
         raise HTTPException(status_code=404, detail="Token not found or expired")
-
+    
     return {"access_token": token}

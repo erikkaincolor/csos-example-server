@@ -1,49 +1,32 @@
-import os
-import logging
-import redis
-import httpx
-import subprocess
 from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.security import OAuth2AuthorizationCodeBearer
-from fastapi.responses import FileResponse, JSONResponse
+import redis
+from fastapi.responses import FileResponse
+import os
+import requests
 from dotenv import load_dotenv
+import httpx
 
-# Load environment variables
 load_dotenv()
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Validate required environment variables
-required_env_vars = [
-    "REDIS_HOST", "REDIS_PORT", "GITHUB_CLIENT_ID", 
-    "GITHUB_CLIENT_SECRET", "REDIRECT_URI"
-]
-for var in required_env_vars:
-    if not os.getenv(var):
-        raise ValueError(f"Missing required environment variable: {var}")
-
-# Initialize FastAPI app
 app = FastAPI()
 
 # Connect to Redis
 redis_client = redis.Redis(
-    host=os.getenv("REDIS_HOST"),
-    port=os.getenv("REDIS_PORT"),
-    password=os.getenv("REDIS_PASSWORD", ""),  # Optional password
+    host=os.getenv("REDIS_HOST"), 
+    port=os.getenv("REDIS_PORT"), 
+    # password=os.getenv("REDIS_PASSWORD"), 
     decode_responses=True
 )
 
-# Test Redis connection
+# Test Connection
 try:
     redis_client.ping()
-    logger.info("✅ Connected to Redis!")
-except redis.exceptions.ConnectionError as e:
-    logger.error(f"❌ Redis connection failed: {e}")
-    raise
+    print("✅ Connected to Redis!")
+except redis.exceptions.ConnectionError:
+    print("❌ Redis connection failed.")
 
-# GitHub OAuth configuration
+# GitHub OAuth
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
 GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
@@ -53,43 +36,50 @@ oauth2_scheme = OAuth2AuthorizationCodeBearer(
     tokenUrl="https://github.com/login/oauth/access_token"
 )
 
-# Root endpoint
+
 @app.get("/")
 async def home():
     return {"message": "Welcome to the FastAPI server!"}
 
-# Serve lesson files
 @app.get("/lessons/{lesson_name}")
 async def serve_lesson(lesson_name: str):
-    # Define the path to the lesson file
-    lesson_path = os.path.join("public", "lessons", f"{lesson_name}.zip")
-    logger.info(f"Looking for file at: {lesson_path}")
+     # Define the path to your lesson file
+    lesson_path = f"public/lessons/{lesson_name}.zip"
+    # /public/lessons/gd2_1-2           404
+    # /public/lessons/gd2_1-2.zip       404
+    # csos-example-server.onrender.com/lessons/gd2_1-2              202
+    # csos-example-server.onrender.com/lessons/gd2_1-2.zip          404
+
+    print(f"Looking for file at: {lesson_path}")
 
     # Check if the file exists
     if os.path.exists(lesson_path):
-        return FileResponse(lesson_path, filename=f"{lesson_name}.zip")
+        return FileResponse(lesson_path)
     else:
         raise HTTPException(status_code=404, detail="Lesson not found")
 
-# GitHub OAuth callback
+
+# Function to verify GitHub user
+# # GitHub OAuth callback
+# https://www.youtube.com/watch?v=Pm938UxLEwQ
+
 @app.get("/auth/github/callback")
 async def github_callback(code: str, request: Request):
-    logger.info("Received GitHub OAuth callback")
+    print(f"OAuth Code: {code}")  # Debugging (avoid logging in production)
+    print(f"Received request: {request.method}")
     
     token_url = "https://github.com/login/oauth/access_token"
     headers = {"Accept": "application/json"}
     payload = {
         "client_id": GITHUB_CLIENT_ID,
         "client_secret": GITHUB_CLIENT_SECRET,
-        "code": code,
-        "redirect_uri": REDIRECT_URI
+        "code": code
     }
 
     async with httpx.AsyncClient() as client:
         token_response = await client.post(token_url, headers=headers, data=payload)
         
         if token_response.status_code != 200:
-            logger.error(f"Failed to fetch access token: {token_response.text}")
             raise HTTPException(status_code=token_response.status_code, detail="Failed to fetch access token")
 
         token_data = token_response.json()
@@ -97,25 +87,42 @@ async def github_callback(code: str, request: Request):
         if "access_token" not in token_data:
             raise HTTPException(status_code=400, detail="Invalid response from GitHub")
 
-        # Store the token in Redis
+        # Store the token in Redis for the csos get tool and /get-token endpoint
         redis_client.set("github_token", token_data["access_token"], ex=3600)  # Store for 1 hour
         
-        return {"access_token": token_data["access_token"]}
+        return {"access_token": token_data["access_token"]}  # Return only the token, not the full response
 
-# Endpoint to retrieve the GitHub OAuth token
+
+    
+# for getting user data sent back as json:
+    # async with httpx.AsyncClient() as client:
+    #     token_response = await client.post(token_url, headers=headers, data=payload)
+    #     token_data = token_response.json()
+    #     print(f"GitHub Token Response: {token_data}")  # Debugging
+    #     access_token = token_data["access_token"]
+    #     headers.update({"Authorization": f"bearer {access_token}"})
+
+    #     user_response = await client.get("https://api.github.com/user", headers=headers)
+    #     return user_response.json()
+
+# to expose github auth token to the csos get tool file
 @app.get("/get-token")
 async def get_token():
     """Endpoint to return the GitHub OAuth token."""
+    # Fetch the token from Redis or generate it dynamically
     token = redis_client.get("github_token")
+    # Store the token in Redis after GitHub OAuth flow
+    print(f"GitHub Token: {token}") #delete this line
     if not token:
         raise HTTPException(status_code=404, detail="Token not found")
     return {"access_token": token}
 
+
 # Rate-limited lesson download
+# does this need to be in server?
 @app.get("/download/{lesson_name}")
 async def download_lesson(lesson_name: str, token: str = Depends(oauth2_scheme)):
-    # Fetch user data from GitHub
-    user_data = await get_github_user(token)
+    user_data = get_github_user(token)
     user_id = user_data["id"]
 
     # Rate-limiting: Allow 5 downloads per hour
@@ -126,31 +133,18 @@ async def download_lesson(lesson_name: str, token: str = Depends(oauth2_scheme))
     redis_client.incr(f"downloads:{user_id}")
     redis_client.expire(f"downloads:{user_id}", 3600)
 
-    return {"message": f"Downloading {lesson_name}.zip", "url": f"/lessons/{lesson_name}.zip"}
+    return {"message": f"Downloading {lesson_name}.zip", "url": f"https://csos-example-server.onrender.com/lessons/{lesson_name}.zip"}
 
-# Helper function to fetch GitHub user data
-async def get_github_user(token: str):
-    async with httpx.AsyncClient() as client:
-        user_response = await client.get(
-            "https://api.github.com/user",
-            headers={"Authorization": f"Bearer {token}"}
-        )
-        if user_response.status_code != 200:
-            raise HTTPException(status_code=user_response.status_code, detail="Failed to fetch user data")
-        return user_response.json()
 
-# Debug endpoint to list lesson files
+
+
+# since i dont get free shell access for render.com, i will use subprocess to run shell commands
+import subprocess
+
 @app.get("/debug/list-lessons")
 async def list_lessons():
     try:
-        result = subprocess.run(
-            ["ls", "-R", "public/lessons/"],
-            capture_output=True,
-            text=True
-        )
-        if result.returncode != 0:
-            return JSONResponse(status_code=500, content={"error": result.stderr})
+        result = subprocess.run(["ls", "-R", "public/lessons/"], capture_output=True, text=True)
         return {"output": result.stdout}
     except Exception as e:
-        logger.error(f"Error listing lessons: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        return {"error": str(e)}

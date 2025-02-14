@@ -113,11 +113,17 @@ async def get_token():
     token = redis_client.get("github_token")
     # Store the token in Redis after GitHub OAuth flow
     print(f"GitHub Token: {token}") #delete this line
-    print((redis_client))
     if not token:
         raise HTTPException(status_code=404, detail="Token not found")
     return {"access_token": token}
 
+def print_redis_keys(redis_client):
+    """Prints all keys in the Redis database."""
+    try:
+        for key in redis_client.scan_iter():
+            print(f"Key: {key}")
+    except redis.exceptions.ConnectionError as e:
+        print(f"Error connecting to Redis: {e}")
 
 # Rate-limited lesson download
 # does this need to be in server?
